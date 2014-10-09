@@ -377,8 +377,8 @@ namespace {
 
     void checkVectorType(Type *T) {
       VectorType *VT = cast<VectorType>(T);
-      assert(VT->getElementType()->getPrimitiveSizeInBits() == 32);
-      assert(VT->getNumElements() == 4);
+      assert((VT->getElementType()->getPrimitiveSizeInBits() == 32 && VT->getNumElements() == 4) ||
+             (VT->getElementType()->getPrimitiveSizeInBits() == 64 && VT->getNumElements() == 2));
       UsesSIMD = true;
       CantValidate = "SIMD types in use";
     }
@@ -1148,6 +1148,7 @@ bool JSWriter::generateSIMDExpression(const User *I, raw_string_ostream& Code) {
   if ((VT = dyn_cast<VectorType>(I->getType()))) {
     // vector-producing instructions
     checkVectorType(VT);
+    I->dump();
 
     switch (Operator::getOpcode(I)) {
       default: I->dump(); error("invalid vector instr"); break;
@@ -1183,10 +1184,31 @@ bool JSWriter::generateSIMDExpression(const User *I, raw_string_ostream& Code) {
         break;
       case Instruction::BitCast: {
         Code << getAssignIfNeeded(I);
+        VectorType *RVT;
+        RVT = dyn_cast<VectorType>(I->getOperand(0)->getType());
+        assert(RVT);
         if (cast<VectorType>(I->getType())->getElementType()->isIntegerTy()) {
-          Code << "SIMD_int32x4_fromFloat32x4Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+          if (RVT->getElementType()->getPrimitiveSizeInBits() == 32) {
+            Code << "SIMD_int32x4_fromFloat32x4Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+          } else {
+            Code << "SIMD_int32x4_fromFloat64x2Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+          }
         } else {
-          Code << "SIMD_float32x4_fromInt32x4Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+          if (VT->getElementType()->getPrimitiveSizeInBits() == 32) {
+            if (RVT->getElementType()->isIntegerTy()) {
+              Code << "SIMD_float32x4_fromInt32x4Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+            } else {
+              assert(RVT->getElementType()->getPrimitiveSizeInBits() == 64);
+              Code << "SIMD_float32x4_fromFloat64x2Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+            }
+          } else {
+            if (RVT->getElementType()->isIntegerTy()) {
+              Code << "SIMD_float64x2_fromInt32x4Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+            } else {
+              assert(RVT->getElementType()->getPrimitiveSizeInBits() == 32);
+              Code << "SIMD_float64x2_fromFloat32x4Bits(" << getValueAsStr(I->getOperand(0)) << ')';
+            }
+          }
         }
         break;
       }
