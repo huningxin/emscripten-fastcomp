@@ -809,6 +809,7 @@ bool ExpandI64::splitInst(Instruction *I) {
         break;
       } else {
         // no-op bitcast
+        I->dump();
         assert(I->getType() == I->getOperand(0)->getType());
         Chunks = getChunks(I->getOperand(0));
         break;

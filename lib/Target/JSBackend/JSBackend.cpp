@@ -1365,9 +1365,9 @@ void JSWriter::generateUnrolledExpression(const User *I, raw_string_ostream& Cod
 bool JSWriter::generateSIMDExpression(const User *I, raw_string_ostream& Code) {
   VectorType *VT;
   if ((VT = dyn_cast<VectorType>(I->getType()))) {
+    I->dump();
     // vector-producing instructions
     checkVectorType(VT);
-    I->dump();
 
     switch (Operator::getOpcode(I)) {
       default: I->dump(); error("invalid vector instr"); break;
@@ -1456,7 +1456,7 @@ bool JSWriter::generateSIMDExpression(const User *I, raw_string_ostream& Code) {
         if (VT->getElementType()->isIntegerTy()) {
           Code << "SIMD_int32x4_load(buffer, " << PS << ")";
         } else {
-          Code << "SIMD_float32x4_load(buffer, " << PS << ")";
+          Code << "HEAPF32.getFloat32x4(" << PS << " >> 2)";
         }
         break;
       }
@@ -1673,7 +1673,7 @@ bool JSWriter::generateSIMDExpression(const User *I, raw_string_ostream& Code) {
       if (VT->getElementType()->isIntegerTy()) {
         Code << "SIMD_int32x4_store(buffer, " << PS << ", " << VS << ")";
       } else {
-        Code << "SIMD_float32x4_store(buffer, " << PS << ", " << VS << ")";
+        Code << "HEAPF32.setFloat32x4(" << PS << " >> 2, " << VS << ")";
       }
       return true;
     } else if (Operator::getOpcode(I) == Instruction::ExtractElement) {
